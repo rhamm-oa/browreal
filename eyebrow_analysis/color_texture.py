@@ -298,12 +298,13 @@ class EyebrowColorTexture:
             'lbp_hist': lbp_hist.tolist()
         }
         
-    def visualize_color(self, color_analysis, figsize=(10, 6)):
+    def visualize_color(self, color_analysis, figsize=(10, 6), image_name="Eyebrow"):
         """Visualize the color analysis results using interactive 3D LAB visualization.
         
         Args:
             color_analysis (dict): Color analysis dictionary from analyze_color
             figsize (tuple): Figure size (not used in interactive visualization)
+            image_name (str): Name of the image for the title
             
         Returns:
             plotly.graph_objects.Figure: Interactive color visualization
@@ -324,6 +325,65 @@ class EyebrowColorTexture:
             subplot_titles=('3D LAB Color Space', 'Dominant Colors', 'Color Information')
         )
         
+        # Add LAB color space boundaries for reference (gamut)
+        # Create a mesh grid for the LAB color space boundaries
+        a_range = np.linspace(-100, 100, 10)
+        b_range = np.linspace(-100, 100, 10)
+        L_range = np.linspace(0, 100, 10)
+        
+        # Create boundary points for the LAB color space
+        # Bottom face (L=0)
+        for a_val in a_range:
+            for b_val in b_range:
+                fig.add_trace(
+                    go.Scatter3d(
+                        x=[a_val], y=[b_val], z=[0],
+                        mode='markers',
+                        marker=dict(size=2, color='lightgray', opacity=0.3),
+                        showlegend=False
+                    ),
+                    row=1, col=1
+                )
+        
+        # Top face (L=100)
+        for a_val in a_range:
+            for b_val in b_range:
+                fig.add_trace(
+                    go.Scatter3d(
+                        x=[a_val], y=[b_val], z=[100],
+                        mode='markers',
+                        marker=dict(size=2, color='lightgray', opacity=0.3),
+                        showlegend=False
+                    ),
+                    row=1, col=1
+                )
+        
+        # Side faces
+        for L_val in L_range:
+            for a_val in [-100, 100]:
+                for b_val in b_range:
+                    fig.add_trace(
+                        go.Scatter3d(
+                            x=[a_val], y=[b_val], z=[L_val],
+                            mode='markers',
+                            marker=dict(size=2, color='lightgray', opacity=0.3),
+                            showlegend=False
+                        ),
+                        row=1, col=1
+                    )
+            
+            for b_val in [-100, 100]:
+                for a_val in a_range:
+                    fig.add_trace(
+                        go.Scatter3d(
+                            x=[a_val], y=[b_val], z=[L_val],
+                            mode='markers',
+                            marker=dict(size=2, color='lightgray', opacity=0.3),
+                            showlegend=False
+                        ),
+                        row=1, col=1
+                    )
+        
         # Add 3D scatter plot of LAB colors
         L, a, b = zip(*lab_colors)
         fig.add_trace(
@@ -331,10 +391,10 @@ class EyebrowColorTexture:
                 x=a, y=b, z=L,
                 mode='markers',
                 marker=dict(
-                    size=8,
+                    size=12,
                     color=[f'rgb({int(r)},{int(g)},{int(b)})' 
                            for r,g,b in color_analysis['dominant_colors']],
-                    opacity=0.8
+                    opacity=1.0
                 ),
                 text=[f'L:{l:.1f}, a:{a:.1f}, b:{b:.1f}' for l,a,b in zip(L,a,b)],
                 hoverinfo='text',
@@ -355,22 +415,23 @@ class EyebrowColorTexture:
             )
         )
         
-        # Add dominant colors bar
-        y_positions = np.cumsum([0] + [p*100 for p in color_analysis['dominant_percentages'][:-1]])
-        for color, height, y_pos in zip(color_analysis['dominant_colors'],
-                                      [p*100 for p in color_analysis['dominant_percentages']],
-                                      y_positions):
-            fig.add_trace(
-                go.Bar(
-                    x=[100],
-                    y=[height],
-                    marker_color=f'rgb({int(color[0])},{int(color[1])},{int(color[2])})',
-                    name=f'{height:.1f}%',
-                    orientation='v',
-                    base=y_pos
-                ),
-                row=1, col=2
-            )
+        # Create a better visualization of dominant colors - color swatches
+        fig.add_trace(
+            go.Heatmap(
+                z=[[i for i in range(len(color_analysis['dominant_colors']))]],
+                colorscale=[
+                    [i/(len(color_analysis['dominant_colors'])-1), 
+                     f'rgb({int(c[0])},{int(c[1])},{int(c[2])})'] 
+                    for i, c in enumerate(color_analysis['dominant_colors'])
+                ],
+                showscale=False,
+                hoverinfo='text',
+                text=[[f"RGB: {c[0]},{c[1]},{c[2]}\nPercentage: {p*100:.1f}%"] 
+                      for c, p in zip(color_analysis['dominant_colors'], 
+                                      color_analysis['dominant_percentages'])]
+            ),
+            row=1, col=2
+        )
         
         # Add color information
         color_info = [
@@ -394,20 +455,31 @@ class EyebrowColorTexture:
             height=800,
             showlegend=False,
             title=dict(
-                text='Color Analysis',
+                text=f'{image_name} - Color Analysis',
                 x=0.5,
                 font=dict(size=24)
             ),
             template='plotly_white'
         )
         
+        # Update axes for the dominant colors plot
+        fig.update_xaxes(
+            title_text="Color Distribution",
+            row=1, col=2
+        )
+        fig.update_yaxes(
+            title_text="Dominant Colors",
+            row=1, col=2
+        )
+        
         return fig
 
-    def visualize_texture(self, texture_analysis):
+    def visualize_texture(self, texture_analysis, image_name="Eyebrow"):
         """Visualize the texture analysis results using interactive visualization.
         
         Args:
             texture_analysis (dict): Texture analysis dictionary from analyze_texture
+            image_name (str): Name of the image for the title
             
         Returns:
             plotly.graph_objects.Figure: Interactive texture visualization
@@ -423,9 +495,20 @@ class EyebrowColorTexture:
             subplot_titles=('Texture Metrics', 'LBP Histogram', 'GLCM Matrix', 'Information')
         )
         
-        # Texture Metrics Bar Chart
+        # Texture Metrics Bar Chart with explanations
         metrics = ['contrast', 'dissimilarity', 'homogeneity', 'energy', 'correlation']
         values = [texture_analysis[metric] for metric in metrics]
+        
+        # Prepare hover text with explanations
+        explanations = {
+            'contrast': 'Measures local variations in the image. Higher values indicate more texture.',
+            'dissimilarity': 'Measures how different each pixel is from its neighbor. Higher values indicate more texture.',
+            'homogeneity': 'Measures the closeness of elements distribution. Higher values indicate smoother texture.',
+            'energy': 'Measures the uniformity of the texture. Higher values indicate more uniform texture.',
+            'correlation': 'Measures how correlated a pixel is to its neighbor. Higher values indicate more structure.'
+        }
+        
+        hover_texts = [f"{metric}: {values[i]:.3f}<br>{explanations[metric]}" for i, metric in enumerate(metrics)]
         
         fig.add_trace(
             go.Bar(
@@ -437,8 +520,19 @@ class EyebrowColorTexture:
                     opacity=0.8,
                     line=dict(width=1, color='rgb(50, 50, 50)')
                 ),
-                hovertemplate='%{x}: %{y:.3f}<extra></extra>'
+                hovertext=hover_texts,
+                hoverinfo='text'
             ),
+            row=1, col=1
+        )
+        
+        # Update axes for texture metrics
+        fig.update_xaxes(
+            title_text="Texture Features",
+            row=1, col=1
+        )
+        fig.update_yaxes(
+            title_text="Feature Value",
             row=1, col=1
         )
         
@@ -461,16 +555,36 @@ class EyebrowColorTexture:
                         opacity=0.8,
                         line=dict(width=1, color='rgb(50, 50, 50)')
                     ),
-                    name='LBP Histogram'
+                    name='LBP Histogram',
+                    hovertemplate='Pattern %{x}: %{y:.3f}<extra></extra>'
                 ),
                 row=1, col=2
             )
+            
+            # Update axes for LBP histogram
+            fig.update_xaxes(
+                title_text="LBP Pattern ID",
+                row=1, col=2
+            )
+            fig.update_yaxes(
+                title_text="Frequency",
+                row=1, col=2
+            )
         
-        # GLCM Matrix Heatmap
+        # GLCM Matrix Heatmap with explanations
         glcm_matrix = np.array([
             [texture_analysis['contrast'], texture_analysis['dissimilarity']],
             [texture_analysis['homogeneity'], texture_analysis['energy']]
         ])
+        
+        # Add annotations to explain GLCM matrix
+        glcm_explanations = [
+            "The GLCM Matrix shows relationships between texture features:<br>" +
+            "- <b>Contrast</b>: Measures local variations<br>" +
+            "- <b>Dissimilarity</b>: Measures how different neighboring pixels are<br>" +
+            "- <b>Homogeneity</b>: Measures smoothness of texture<br>" +
+            "- <b>Energy</b>: Measures uniformity of texture"
+        ]
         
         fig.add_trace(
             go.Heatmap(
@@ -479,24 +593,57 @@ class EyebrowColorTexture:
                 y=['Homogeneity', 'Energy'],
                 colorscale='Viridis',
                 showscale=True,
-                colorbar=dict(title='Value')
+                colorbar=dict(title='Value'),
+                hovertemplate='%{y} vs %{x}: %{z:.3f}<extra></extra>'
             ),
             row=2, col=1
         )
         
-        # Add texture information table
+        # Add annotation for GLCM explanation
+        fig.add_annotation(
+            text=glcm_explanations[0],
+            xref="x3", yref="y3",
+            x=0.5, y=0.1,
+            showarrow=False,
+            font=dict(size=10),
+            align="left",
+            bgcolor="rgba(255, 255, 255, 0.8)",
+            bordercolor="gray",
+            borderwidth=1,
+            borderpad=4
+        )
+        
+        # Add texture information table with expanded explanations
         texture_info = [
             f"Texture Category: {texture_analysis['texture_category']}",
             f"Texture Score: {texture_analysis['texture_score']:.2f}",
             f"Uniformity: {texture_analysis['uniformity_category']}",
-            f"Correlation: {texture_analysis['correlation']:.2f}"
+            f"Correlation: {texture_analysis['correlation']:.2f}",
+            f"Entropy: {texture_analysis['entropy']:.2f}"
+        ]
+        
+        # Add explanations for the metrics
+        texture_explanations = [
+            "Describes the overall texture feel (smooth, medium, rough)",
+            "Numerical score combining contrast, dissimilarity, homogeneity and energy",
+            "Describes how consistent the texture is across the eyebrow",
+            "Measures the linear dependency of gray levels (0-1)",
+            "Measures randomness in the texture (higher = more random)"
         ]
         
         fig.add_trace(
             go.Table(
-                header=dict(values=['Texture Information']),
-                cells=dict(values=[texture_info]),
-                columnwidth=[400]
+                header=dict(
+                    values=['Texture Information', 'Explanation'],
+                    fill_color='royalblue',
+                    font=dict(color='white')
+                ),
+                cells=dict(
+                    values=[texture_info, texture_explanations],
+                    fill_color=['lightgray', 'white'],
+                    align='left'
+                ),
+                columnwidth=[200, 300]
             ),
             row=2, col=2
         )
@@ -506,7 +653,7 @@ class EyebrowColorTexture:
             height=800,
             showlegend=False,
             title=dict(
-                text='Texture Analysis',
+                text=f'{image_name} - Texture Analysis',
                 x=0.5,
                 font=dict(size=24)
             ),
