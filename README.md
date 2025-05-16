@@ -25,8 +25,6 @@ vbrow/
 │   ├── segmentation.py         # Eyebrow segmentation
 │   ├── color_texture.py        # Color and texture analysis
 │   └── analyzer.py             # Main analyzer integrating all components
-├── models/                     # Pre-trained models
-│   └── shape_predictor_68_face_landmarks.dat
 ├── main.py                     # Main script to run analysis
 ├── setup_venv.py               # Script to set up virtual environment
 ├── requirements.txt            # Dependencies
