@@ -1,0 +1,16 @@
+numpy>=1.20.0
+opencv-python>=4.5.1
+scikit-image>=0.18.1
+scikit-learn>=0.24.1
+matplotlib>=3.4.1
+pandas>=1.2.4
+scipy>=1.6.2
+tensorflow>=2.5.0  # Will use GPU if available
+torch>=1.9.0  # Will use GPU if available
+torchvision>=0.10.0
+torchaudio>=0.9.0
+mediapipe>=0.8.9
+seaborn>=0.11.1
+pillow>=8.2.0
+tqdm>=4.60.0
+plotly>=5.1.0
